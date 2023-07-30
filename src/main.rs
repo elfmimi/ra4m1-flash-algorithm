@@ -62,12 +62,8 @@ impl Algorithm {
         // rprintln!("FISR = 0x{:X}", FISR.read());
         if USE_HOCO {
             // Set PCKA to 23 when FCLK is at 24MHz
-            // FISR.write(24 - 1);
-            // Set PCKA to 31 when FCLK is at 32MHz
-            FISR.write(32 - 1);
+            FISR.write(24 - 1);
         } else {
-            // Set PCKA to 3 when FCLK is at 4MHz
-            // FISR.write(4 - 1);
             // Set PCKA to 7 when FCLK is at 8MHz
             FISR.write(8 - 1);
         }
@@ -134,8 +130,8 @@ impl FlashAlgorithm for Algorithm {
 
         // let mut core_peripherals = cortex_m::Peripherals::take().unwrap();
         let core_peripherals = unsafe { cortex_m::Peripherals::steal() };
-        // We will set ICK to 8MHz below.
-        let ick_herz = if USE_HOCO { 64_000_000 } else { 8_000_000 };
+        // We will set ICLK to 48MHz or 8MHz below.
+        let ick_herz = if USE_HOCO { 48_000_000 } else { 8_000_000 };
         let delay = delay::Delay::new(core_peripherals.SYST, ick_herz);
 
         // rprintln!("PRCR = 0x{:X}", PRCR.read());
@@ -157,20 +153,21 @@ impl FlashAlgorithm for Algorithm {
         // rprintln!("SCKDIVCR = 0x{:X}", SCKDIVCR.read());
         if USE_HOCO {
             SCKSCR.write(0x01); // select MOCO
+            // dividing by 1, we get 8MHz
             SCKDIVCR.write(0x0000_0000);
             HOCOCR.write(0x01); // Stop HOCO
-            HOCOCR2.write(0x28); // Set HOCO to 64MHz
+            HOCOCR2.write(0x20); // Set HOCO to 48MHz
             HOCOCR.write(0x00); // Start HOCO
             while OSCSF.read() & 0x01 == 0 {}
-            // dividing by 2, we get 32MHz. except for ICK.
+            // dividing by 2, we get 24MHz. except for ICLK.
             SCKDIVCR.write(0x1001_1111);
             // May not need this as we will only be accessing SRAM and registers.
             MEMWAIT.write(0x01); // MEMWAIT = 1
             SCKSCR.write(0x00); // select HOCO
         } else {
+            SCKSCR.write(0x01); // select MOCO
             // dividing by 1, we get 8MHz
             SCKDIVCR.write(0x0000_0000);
-            // SCKSCR.write(0x01); // select MOCO
         }
         // rprintln!("SCKDIVCR = 0x{:X}", SCKDIVCR.read());
 
